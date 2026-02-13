@@ -6,6 +6,38 @@
     <title>Rancho5G - Sistema Completo de Gestión</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Firebase Scripts -->
+    <script type="module">
+        // Import Firebase
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBP6TaEoOxNo2kdeIYPqmnffAdbFCI992E",
+            authDomain: "rancho5g.firebaseapp.com",
+            projectId: "rancho5g",
+            storageBucket: "rancho5g.firebasestorage.app",
+            messagingSenderId: "884154123898",
+            appId: "1:884154123898:web:851facb522d642dda75dc3"
+        };
+        
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // Make Firebase functions globally available
+        window.firebaseDB = db;
+        window.firebaseDoc = doc;
+        window.firebaseSetDoc = setDoc;
+        window.firebaseGetDoc = getDoc;
+        window.firebaseGetDocs = getDocs;
+        window.firebaseCollection = collection;
+        window.firebaseUpdateDoc = updateDoc;
+        window.firebaseDeleteDoc = deleteDoc;
+        window.firebaseOnSnapshot = onSnapshot;
+    </script>
     <style>
         * {
             margin: 0;
@@ -1491,30 +1523,75 @@
         let currentSaleForPayment = null;
 
         // Cargar datos del localStorage
-        function loadData() {
-            const savedProducts = localStorage.getItem('rancho5g_products');
-            const savedSales = localStorage.getItem('rancho5g_sales');
-            const savedExpenses = localStorage.getItem('rancho5g_expenses');
-            const savedClients = localStorage.getItem('rancho5g_clients');
-            const savedUsers = localStorage.getItem('rancho5g_users');
-            const savedReservations = localStorage.getItem('rancho5g_reservations');
-            
-            if (savedProducts) products = JSON.parse(savedProducts);
-            if (savedSales) sales = JSON.parse(savedSales);
-            if (savedExpenses) expenses = JSON.parse(savedExpenses);
-            if (savedClients) clients = JSON.parse(savedClients);
-            if (savedUsers) users = JSON.parse(savedUsers);
-            if (savedReservations) reservations = JSON.parse(savedReservations);
+        async function loadData() {
+            try {
+                const docRef = window.firebaseDoc(window.firebaseDB, "rancho5g", "data");
+                const docSnap = await window.firebaseGetDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    products = data.products || products;
+                    sales = data.sales || sales;
+                    expenses = data.expenses || expenses;
+                    clients = data.clients || clients;
+                    users = data.users || users;
+                    reservations = data.reservations || reservations;
+                    console.log("✅ Datos cargados desde Firebase");
+                } else {
+                    console.log("⚠️ No hay datos en Firebase, usando datos por defecto");
+                    // Guardar datos iniciales
+                    await saveData();
+                }
+            } catch (error) {
+                console.error("❌ Error cargando datos desde Firebase:", error);
+                // Fallback a localStorage si Firebase falla
+                const savedProducts = localStorage.getItem('rancho5g_products');
+                const savedSales = localStorage.getItem('rancho5g_sales');
+                const savedExpenses = localStorage.getItem('rancho5g_expenses');
+                const savedClients = localStorage.getItem('rancho5g_clients');
+                const savedUsers = localStorage.getItem('rancho5g_users');
+                const savedReservations = localStorage.getItem('rancho5g_reservations');
+                
+                if (savedProducts) products = JSON.parse(savedProducts);
+                if (savedSales) sales = JSON.parse(savedSales);
+                if (savedExpenses) expenses = JSON.parse(savedExpenses);
+                if (savedClients) clients = JSON.parse(savedClients);
+                if (savedUsers) users = JSON.parse(savedUsers);
+                if (savedReservations) reservations = JSON.parse(savedReservations);
+            }
         }
 
-        // Guardar datos en localStorage
-        function saveData() {
-            localStorage.setItem('rancho5g_products', JSON.stringify(products));
-            localStorage.setItem('rancho5g_sales', JSON.stringify(sales));
-            localStorage.setItem('rancho5g_expenses', JSON.stringify(expenses));
-            localStorage.setItem('rancho5g_clients', JSON.stringify(clients));
-            localStorage.setItem('rancho5g_users', JSON.stringify(users));
-            localStorage.setItem('rancho5g_reservations', JSON.stringify(reservations));
+        async function saveData() {
+            try {
+                const docRef = window.firebaseDoc(window.firebaseDB, "rancho5g", "data");
+                await window.firebaseSetDoc(docRef, {
+                    products: products,
+                    sales: sales,
+                    expenses: expenses,
+                    clients: clients,
+                    users: users,
+                    reservations: reservations,
+                    lastUpdated: new Date().toISOString()
+                });
+                console.log("✅ Datos guardados en Firebase");
+                
+                // También guardar en localStorage como respaldo
+                localStorage.setItem('rancho5g_products', JSON.stringify(products));
+                localStorage.setItem('rancho5g_sales', JSON.stringify(sales));
+                localStorage.setItem('rancho5g_expenses', JSON.stringify(expenses));
+                localStorage.setItem('rancho5g_clients', JSON.stringify(clients));
+                localStorage.setItem('rancho5g_users', JSON.stringify(users));
+                localStorage.setItem('rancho5g_reservations', JSON.stringify(reservations));
+            } catch (error) {
+                console.error("❌ Error guardando en Firebase:", error);
+                // Guardar solo en localStorage si Firebase falla
+                localStorage.setItem('rancho5g_products', JSON.stringify(products));
+                localStorage.setItem('rancho5g_sales', JSON.stringify(sales));
+                localStorage.setItem('rancho5g_expenses', JSON.stringify(expenses));
+                localStorage.setItem('rancho5g_clients', JSON.stringify(clients));
+                localStorage.setItem('rancho5g_users', JSON.stringify(users));
+                localStorage.setItem('rancho5g_reservations', JSON.stringify(reservations));
+            }
         }
 
         // Manejar carga de imagen
@@ -3215,8 +3292,10 @@
         }
 
         // Inicializar
-        loadData();
-        document.getElementById('expenseDate').valueAsDate = new Date();
+        (async function() {
+            await loadData();
+            document.getElementById('expenseDate').valueAsDate = new Date();
+        })();
     </script>
 </body>
 </html>
